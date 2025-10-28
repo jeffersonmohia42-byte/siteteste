@@ -1,4 +1,4 @@
-// src/app.js
+// public/js/app.js
 export function initApp({ generateLTC }) {
   const uploadArea   = document.getElementById('uploadArea');
   const musicFile    = document.getElementById('musicFile');
@@ -15,21 +15,21 @@ export function initApp({ generateLTC }) {
   const preview      = document.getElementById('preview');
   const musicStatus  = document.getElementById('musicStatus');
 
-  // SUA URL PÚBLICA DO BLOB (fixa aqui):
+  // URL pública do blob (se quiser trocar depois, é aqui)
   const NOISE_URL = "https://ajkn3hlscwxlwhjd.public.blob.vercel-storage.com/TIMECODE%20AUDIO%20TESTE%20ruido.mp3";
 
   let audioCtx, musicBuf, mixBlob;
 
   modeL.onchange = toggleRows; toggleRows();
 
-  // === Upload via label (abre nativamente) ===
+  // Abre via label + lê arquivo
   musicFile.onchange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     await handleMusicFile(file);
   };
 
-  // === Drag & Drop opcional ===
+  // Drag & drop opcional (deixa bacana)
   ['dragenter','dragover'].forEach(evt=>{
     uploadArea.addEventListener(evt, ev => { ev.preventDefault(); uploadArea.classList.add('drag'); });
   });
@@ -59,7 +59,7 @@ export function initApp({ generateLTC }) {
   document.getElementById('btnProcess').onclick = async () => {
     if (!musicBuf) return;
 
-    const sr = musicBuf.sampleRate;
+    const sr  = musicBuf.sampleRate;
     const len = musicBuf.length;
     const off = new OfflineAudioContext(2, len, sr);
 
@@ -79,7 +79,7 @@ export function initApp({ generateLTC }) {
       const tmpCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
       const base = await tmpCtx.decodeAudioData(arr);
 
-      // Resample para SR do projeto, se necessário
+      // Resample p/ SR do projeto, se necessário
       let baseBuf = base;
       if (base.sampleRate !== sr) {
         const rs = new OfflineAudioContext(1, Math.floor(base.duration * sr), sr);
@@ -90,12 +90,12 @@ export function initApp({ generateLTC }) {
 
       // Tile + envelope por BPM
       const left = off.createBuffer(1, len, sr);
-      const dst = left.getChannelData(0);
-      const src = baseBuf.getChannelData(0); const slen = src.length;
+      const dst  = left.getChannelData(0);
+      const src  = baseBuf.getChannelData(0); const slen = src.length;
       for (let i = 0; i < len; i++) dst[i] = src[i % slen];
 
-      const bpm = Math.max(40, Math.min(220, parseInt(bpmInput.value) || 120));
-      const beat = Math.floor(sr * 60 / bpm);
+      const bpm   = Math.max(40, Math.min(220, parseInt(bpmInput.value) || 120));
+      const beat  = Math.floor(sr * 60 / bpm);
       const pulse = Math.floor(sr * 0.04); // 40 ms
       for (let start = 0; start < len; start += beat) {
         for (let i = 0; i < pulse && start + i < len; i++) {
@@ -116,14 +116,14 @@ export function initApp({ generateLTC }) {
       const ltcBuf = generateLTC({ sr, length: len, fps: drop ? 30 : fps, dropFrame: drop });
       const srcL = new AudioBufferSourceNode(off, { buffer: ltcBuf });
       const hp = off.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 500;
-      const lp = off.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5000;
+      const lp = off.createBiquadFilter(); lp.type = 'lowpass';  lp.frequency.value = 5000;
       const gL = off.createGain(); gL.gain.value = parseInt(levelL.value) / 100;
       srcL.connect(hp); hp.connect(lp); lp.connect(gL); leftNode = gL; srcL.start();
     }
 
     // Mix
     leftNode.connect(merger, 0, 0);
-    gR.connect(merger, 0, 1);
+    gR.connect(merger,   0, 1);
     merger.connect(off.destination);
     musicSrc.start();
 
