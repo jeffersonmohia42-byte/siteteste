@@ -27,7 +27,7 @@
         <!-- input invisível, acionado pelo label -->
         <input id="musicFile" type="file" accept="audio/*" class="visually-hidden" />
 
-        <!-- ESTE label abre o seletor de arquivo sem JS -->
+        <!-- label abre nativamente o seletor de arquivos -->
         <label for="musicFile" class="btn" id="btnPickMusic">Selecionar Música</label>
 
         <canvas id="statusCanvas" width="520" height="90"></canvas>
@@ -79,10 +79,10 @@
     </section>
   </div>
 
+  <!-- IMPORTANTE: agora os módulos estão em /public/js -->
   <script type="module">
-    import { generateLTC } from '/src/ltc.js';
-    import { initApp } from '/src/app.js';
-    // Não precisamos mais de cloud.js aqui porque você quer usar a URL direta do Blob
+    import { generateLTC } from '/js/ltc.js';
+    import { initApp } from '/js/app.js';
     initApp({ generateLTC });
   </script>
 </body>
