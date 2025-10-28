@@ -1,38 +1,60 @@
 // src/app.js
-export function initApp({ generateLTC /* getNoiseBaseURL, fetchAudioBuffer */ }) {
-  const musicFile = document.getElementById('musicFile');
-  const btnPickMusic = document.getElementById('btnPickMusic');
+export function initApp({ generateLTC }) {
+  const uploadArea   = document.getElementById('uploadArea');
+  const musicFile    = document.getElementById('musicFile');
   const statusCanvas = document.getElementById('statusCanvas');
-  const modeL = document.getElementById('modeL');
-  const fpsSel = document.getElementById('fpsSel');
-  const bpmRow = document.getElementById('bpmRow');
-  const fpsRow = document.getElementById('fpsRow');
-  const bpmInput = document.getElementById('bpmInput');
-  const levelL = document.getElementById('levelL');
-  const levelR = document.getElementById('levelR');
-  const btnProcess = document.getElementById('btnProcess');
-  const btnDownload = document.getElementById('btnDownload');
-  const preview = document.getElementById('preview');
-  const musicStatus = document.getElementById('musicStatus');
+  const modeL        = document.getElementById('modeL');
+  const fpsSel       = document.getElementById('fpsSel');
+  const bpmRow       = document.getElementById('bpmRow');
+  const fpsRow       = document.getElementById('fpsRow');
+  const bpmInput     = document.getElementById('bpmInput');
+  const levelL       = document.getElementById('levelL');
+  const levelR       = document.getElementById('levelR');
+  const btnProcess   = document.getElementById('btnProcess');
+  const btnDownload  = document.getElementById('btnDownload');
+  const preview      = document.getElementById('preview');
+  const musicStatus  = document.getElementById('musicStatus');
 
-  // >>> SUA URL DO BLOB (pública):
+  // SUA URL PÚBLICA DO BLOB (fixa aqui):
   const NOISE_URL = "https://ajkn3hlscwxlwhjd.public.blob.vercel-storage.com/TIMECODE%20AUDIO%20TESTE%20ruido.mp3";
 
   let audioCtx, musicBuf, mixBlob;
 
-  btnPickMusic.onclick = () => musicFile.click();
   modeL.onchange = toggleRows; toggleRows();
 
+  // === Upload via label (abre nativamente) ===
   musicFile.onchange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const arr = await file.arrayBuffer();
-    musicBuf = await audioCtx.decodeAudioData(arr);
-    drawStatus(statusCanvas, `Música: ${file.name}`, musicBuf.duration, musicBuf.sampleRate);
-    musicStatus.textContent = '✅ Música carregada';
-    btnProcess.disabled = false; btnDownload.disabled = true;
+    await handleMusicFile(file);
   };
+
+  // === Drag & Drop opcional ===
+  ['dragenter','dragover'].forEach(evt=>{
+    uploadArea.addEventListener(evt, ev => { ev.preventDefault(); uploadArea.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    uploadArea.addEventListener(evt, ev => { ev.preventDefault(); uploadArea.classList.remove('drag'); });
+  });
+  uploadArea.addEventListener('drop', async ev=>{
+    const file = ev.dataTransfer?.files?.[0];
+    if (file) await handleMusicFile(file);
+  });
+
+  async function handleMusicFile(file){
+    try{
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const arr = await file.arrayBuffer();
+      musicBuf = await audioCtx.decodeAudioData(arr);
+      drawStatus(statusCanvas, `Música: ${file.name}`, musicBuf.duration, musicBuf.sampleRate);
+      musicStatus.textContent = '✅ Música carregada';
+      btnProcess.disabled = false;
+      btnDownload.disabled = true;
+    }catch(err){
+      console.error('Falha ao carregar música:', err);
+      musicStatus.textContent = '⚠️ Erro ao carregar música';
+    }
+  }
 
   document.getElementById('btnProcess').onclick = async () => {
     if (!musicBuf) return;
@@ -52,14 +74,12 @@ export function initApp({ generateLTC /* getNoiseBaseURL, fetchAudioBuffer */ })
     let leftNode;
 
     if (modeL.value === 'noisebase') {
-      // === Baixa o RUÍDO BASE direto do Blob ===
-      // (não usamos mais getNoiseBaseURL/fetchAudioBuffer)
+      // Baixa RUÍDO do Blob
       const arr = await fetch(NOISE_URL).then(r => r.arrayBuffer());
-      // decode com um AudioContext temporário (compatível com Safari/iOS)
       const tmpCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
       const base = await tmpCtx.decodeAudioData(arr);
 
-      // resample p/ SR do projeto, se necessário
+      // Resample para SR do projeto, se necessário
       let baseBuf = base;
       if (base.sampleRate !== sr) {
         const rs = new OfflineAudioContext(1, Math.floor(base.duration * sr), sr);
@@ -68,7 +88,7 @@ export function initApp({ generateLTC /* getNoiseBaseURL, fetchAudioBuffer */ })
         baseBuf = await rs.startRendering();
       }
 
-      // tile + envelope por BPM
+      // Tile + envelope por BPM
       const left = off.createBuffer(1, len, sr);
       const dst = left.getChannelData(0);
       const src = baseBuf.getChannelData(0); const slen = src.length;
@@ -90,7 +110,7 @@ export function initApp({ generateLTC /* getNoiseBaseURL, fetchAudioBuffer */ })
       srcL.connect(bp); bp.connect(gL); leftNode = gL; srcL.start();
 
     } else {
-      // === LTC ===
+      // LTC
       const fps = parseFloat(fpsSel.value);
       const drop = fps === 29.97;
       const ltcBuf = generateLTC({ sr, length: len, fps: drop ? 30 : fps, dropFrame: drop });
